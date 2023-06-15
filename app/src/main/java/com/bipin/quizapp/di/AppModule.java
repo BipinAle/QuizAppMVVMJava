@@ -5,11 +5,11 @@ import android.content.Context;
 
 import androidx.room.Room;
 
+import com.bipin.quizapp.BuildConfig;
 import com.bipin.quizapp.database.AppDatabase;
 import com.bipin.quizapp.database.dao.QuizDao;
 import com.bipin.quizapp.network.ApiService;
 import com.bipin.quizapp.repositories.QuizRepository;
-import com.bipin.quizapp.utils.Constants;
 
 import javax.inject.Singleton;
 
@@ -57,7 +57,7 @@ public class AppModule {
     @Provides
     public Retrofit provideRetrofit(OkHttpClient okHttpClient) {
         return new Retrofit.Builder()
-                .baseUrl(Constants.BASE_URL)
+                .baseUrl(BuildConfig.BASE_URL)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();

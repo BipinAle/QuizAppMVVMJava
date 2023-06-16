@@ -17,7 +17,6 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.bipin.quizapp.R;
 import com.bipin.quizapp.UI.adapters.MyPagerAdapter;
 import com.bipin.quizapp.UI.fragments.QuizFragment;
-import com.bipin.quizapp.database.dao.AnswerDao;
 import com.bipin.quizapp.database.dao.QuestionDao;
 import com.bipin.quizapp.model.Answer;
 import com.bipin.quizapp.model.Question;
@@ -51,8 +50,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     QuizViewModel quizViewModel;
     @Inject
     QuestionDao questionDao;
-    @Inject
-    AnswerDao answerDao;
 
     private CompositeDisposable disposables = new CompositeDisposable();
     private long timerFullTime = 20000;
@@ -66,6 +63,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Disposable disposable;
     private MyPagerAdapter adapter;
     private int count;
+    private boolean hasTimerEnded;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -118,15 +116,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         adapter = new MyPagerAdapter(this, questionList);
         viewpager.setAdapter(adapter);
         startTimer();
-        viewpager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-
-            @Override
-            public void onPageSelected(int position) {
-
-
-            }
-        });
-
 
     }
 
@@ -142,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
             public void onFinish() {
+                hasTimerEnded = true;
                 onAnimationEnded();
             }
         }.start();
@@ -215,19 +205,52 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void getQuestions() {
-        progressBar.setVisibility(View.VISIBLE);
         if (Apputils.isNetworkConnected(this)) {
             /*do api call*/
+            progressBar.setVisibility(View.VISIBLE);
             quizViewModel.getQuestions();
         } else {
             /*get data from roomdb*/
-            new Thread(() -> {
-                questionList = questionDao.getAllQuestions();
-            }).start();
+            Single.fromCallable(() -> {
+                        questionList = questionDao.getAllQuestions();
+                        return questionList;
+                    })
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new SingleObserver<List<Question>>() {
+                        @Override
+                        public void onSubscribe(@NonNull Disposable d) {
+                            disposables.add(d);
+                        }
+
+                        @Override
+                        public void onSuccess(@NonNull List<Question> aBoolean) {
+                            List<Question> questions = new ArrayList<>();
+                            for (int i = 0; i < questionList.size(); i++) {
+                                Question question = questionList.get(i);
+                                for (int j = 0; j < question.getAnswerList().size(); j++) {
+                                    question.getAnswerList().get(j).setSelected(false);
+                                }
+                                questions.add(question);
+                            }
+                            saveNewData(questions);
+
+                        }
+
+                        @Override
+                        public void onError(@NonNull Throwable e) {
+
+                        }
+                    });
         }
 
     }
 
+    private void saveNewData(List<Question> questions) {
+        Observable.fromIterable(questions)
+                .subscribeOn(Schedulers.io())
+                .subscribe(question -> questionDao.insert(question));
+    }
 
     @Override
     public void onClick(View view) {
@@ -253,40 +276,44 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.d(TAG, "current page index::" + pageIndex);
         Log.d(TAG, "number of question::" + questionList.size());
         if (event instanceof AnswerClickedEvent) {
-            Question questionToupdate = ((AnswerClickedEvent) event).getQuestion();
-            Answer selectedAns = ((AnswerClickedEvent) event).getAnswerItem();
-            for (int i = 0; i < questionToupdate.getAnswerList().size(); i++) {
-                questionToupdate.getAnswerList().get(i).setSelected(questionToupdate.getAnswerList().get(i).getAns().equals(selectedAns.getAns()));
-            }
-            Single.fromCallable(() -> {
-                        questionDao.insert(questionToupdate);
-                        return true;
-                    })
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(new SingleObserver<Boolean>() {
-                        @Override
-                        public void onSubscribe(@NonNull Disposable d) {
-                            disposables.add(d);
-                        }
-
-                        @Override
-                        public void onSuccess(@NonNull Boolean aBoolean) {
-                            if (aBoolean && adapter != null) {
-                                QuizFragment quizFragment = adapter.getFragment(viewpager.getCurrentItem());
-                                quizFragment.updateAnswer(questionToupdate.getAnswerList());
+            if (!hasTimerEnded) {
+                Question questionToupdate = ((AnswerClickedEvent) event).getQuestion();
+                Answer selectedAns = ((AnswerClickedEvent) event).getAnswerItem();
+                for (int i = 0; i < questionToupdate.getAnswerList().size(); i++) {
+                    questionToupdate.getAnswerList().get(i).setSelected(questionToupdate.getAnswerList().get(i).getAns().equals(selectedAns.getAns()));
+                }
+                Single.fromCallable(() -> {
+                            questionDao.insert(questionToupdate);
+                            return true;
+                        })
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(new SingleObserver<Boolean>() {
+                            @Override
+                            public void onSubscribe(@NonNull Disposable d) {
+                                disposables.add(d);
                             }
-                            new Handler().postDelayed(() -> {
-                                viewpager.setCurrentItem(pageIndex + 1);
-                            }, 1000);
 
-                        }
+                            @Override
+                            public void onSuccess(@NonNull Boolean aBoolean) {
+                                if (aBoolean && adapter != null) {
+                                    QuizFragment quizFragment = adapter.getFragment(viewpager.getCurrentItem());
+                                    quizFragment.updateAnswer(questionToupdate.getAnswerList());
+                                }
+                                new Handler().postDelayed(() -> {
+                                    viewpager.setCurrentItem(pageIndex + 1);
+                                }, 1000);
 
-                        @Override
-                        public void onError(@NonNull Throwable e) {
-                            e.printStackTrace();
-                        }
-                    });
+                            }
+
+                            @Override
+                            public void onError(@NonNull Throwable e) {
+                                e.printStackTrace();
+                            }
+                        });
+            } else {
+                Toast.makeText(this, "Time Up!!", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }

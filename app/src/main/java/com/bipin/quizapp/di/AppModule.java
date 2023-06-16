@@ -7,7 +7,6 @@ import androidx.room.Room;
 
 import com.bipin.quizapp.BuildConfig;
 import com.bipin.quizapp.database.AppDatabase;
-import com.bipin.quizapp.database.dao.AnswerDao;
 import com.bipin.quizapp.database.dao.QuestionDao;
 import com.bipin.quizapp.network.ApiService;
 import com.bipin.quizapp.repositories.QuizRepository;
@@ -33,10 +32,6 @@ public class AppModule {
         return database.quizDao();
     }
 
-    @Provides
-    public static AnswerDao provideAnswerDao(AppDatabase database) {
-        return database.answerDao();
-    }
 
     @Provides
     @Singleton

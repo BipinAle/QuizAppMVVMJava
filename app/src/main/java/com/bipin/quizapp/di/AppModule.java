@@ -7,7 +7,8 @@ import androidx.room.Room;
 
 import com.bipin.quizapp.BuildConfig;
 import com.bipin.quizapp.database.AppDatabase;
-import com.bipin.quizapp.database.dao.QuizDao;
+import com.bipin.quizapp.database.dao.AnswerDao;
+import com.bipin.quizapp.database.dao.QuestionDao;
 import com.bipin.quizapp.network.ApiService;
 import com.bipin.quizapp.repositories.QuizRepository;
 
@@ -25,9 +26,16 @@ import retrofit2.converter.gson.GsonConverterFactory;
 @Module
 @InstallIn(SingletonComponent.class)
 public class AppModule {
+
+
     @Provides
-    public static QuizDao provideUserDao(AppDatabase database) {
+    public static QuestionDao provideUserDao(AppDatabase database) {
         return database.quizDao();
+    }
+
+    @Provides
+    public static AnswerDao provideAnswerDao(AppDatabase database) {
+        return database.answerDao();
     }
 
     @Provides
@@ -35,7 +43,6 @@ public class AppModule {
     Context provideContext(Application application) {
         return application;
     }
-
 
     @Provides
     @Singleton
@@ -70,8 +77,8 @@ public class AppModule {
 
 
     @Provides
-    public QuizRepository provideUserRepository(QuizDao quizDao, ApiService apiService) {
-        return new QuizRepository(quizDao, apiService);
+    public QuizRepository provideUserRepository(ApiService apiService) {
+        return new QuizRepository(apiService);
     }
 
 }

@@ -1,8 +1,5 @@
 package com.bipin.quizapp.model;
 
-import androidx.room.TypeConverters;
-
-import com.bipin.quizapp.database.converters.QuizTypeConverter;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
@@ -13,7 +10,6 @@ public class QuizPojo {
     @Expose
     private Integer responseCode;
 
-    @TypeConverters(QuizTypeConverter.class)
     @SerializedName("results")
     @Expose
     private List<Question> questions;

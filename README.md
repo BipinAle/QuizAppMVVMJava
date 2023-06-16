@@ -9,6 +9,7 @@ This is a Quiz App for Android built using Java and various libraries and framew
 - Keep track of the user's score
 - Timer based selection
 - Show a score at the end
+- Offline play is possible if data is alredy saved
 
 ## Technologies Used
 
